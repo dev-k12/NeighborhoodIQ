@@ -37,6 +37,14 @@ PINCODES_DATA = _load_pincodes_data()
 
 
 
+ALLOWED_SORT_FIELDS = {
+    "quality_score", "name", "city", "district", "state", "pincode",
+    "healthcare_score", "education_score", "green_space_score", "transit_score", "amenity_score", "safety_proxy_score",
+    "healthcare_count", "education_count", "green_space_count", "transit_count", "amenity_count", "safety_proxy_count",
+    "cluster_id", "created_at", "id"
+}
+
+
 @router.get("")
 def list_localities(
     search: Optional[str] = Query(None, description="Search by locality name or pincode"),
@@ -53,7 +61,7 @@ def list_localities(
     """
     query = db.query(Locality)
 
-    if search:
+    if search and search.strip():
         search_pattern = f"%{search.strip()}%"
         query = query.filter(
             (Locality.name.ilike(search_pattern)) |
@@ -83,17 +91,18 @@ def list_localities(
     if cluster is not None:
         query = query.filter(Locality.cluster_id == cluster)
 
-
     # Compute overall ranks based on quality_score
     all_localities = db.query(Locality).order_by(Locality.quality_score.desc()).all()
     rank_map = {loc.id: idx for idx, loc in enumerate(all_localities, start=1)}
 
-    # Apply sorting
-    sort_column = getattr(Locality, sort_by, Locality.quality_score)
-    if order.lower() == "asc":
+    # Apply sorting with whitelist protection
+    effective_sort = sort_by.strip() if (sort_by and sort_by.strip() in ALLOWED_SORT_FIELDS) else "quality_score"
+    sort_column = getattr(Locality, effective_sort, Locality.quality_score)
+    if order and order.lower() == "asc":
         query = query.order_by(sort_column.asc())
     else:
         query = query.order_by(sort_column.desc())
+
 
     localities = query.all()
 
@@ -186,7 +195,8 @@ def live_lookup_locality(
     resolved_name = geo["name"]
     resolved_city = geo["city"]
     resolved_state = geo["state"]
-    resolved_pin = geo.get("pincode") or detected_pin
+    raw_pin = geo.get("pincode") or detected_pin
+    resolved_pin = str(raw_pin).strip() if (raw_pin and PINCODE_REGEX.match(str(raw_pin).strip())) else None
     resolved_district = geo.get("district") or resolved_city
 
     # Step 3: Check if already present in DB
@@ -200,28 +210,16 @@ def live_lookup_locality(
         ).first()
 
     if existing:
-        # Check if existing entry has genuine counts (not a corrupted 0-record from a prior timeout)
-        total_elements = (
-            (existing.healthcare_count or 0) +
-            (existing.education_count or 0) +
-            (existing.green_space_count or 0) +
-            (existing.transit_count or 0) +
-            (existing.amenity_count or 0) +
-            (existing.safety_proxy_count or 0)
-        )
-        if total_elements > 0:
-            logger.info(f"Found existing cached locality for {resolved_name}, {resolved_city}")
-            if resolved_pin and not existing.pincode:
-                existing.pincode = resolved_pin
-                db.commit()
-            all_locs = db.query(Locality).order_by(Locality.quality_score.desc()).all()
-            rank = next((idx for idx, loc in enumerate(all_locs, 1) if loc.id == existing.id), 1)
-            res = existing.to_dict()
-            res["rank"] = rank
-            res["cached"] = True
-            return res
-        else:
-            logger.info(f"Existing record for {resolved_name} had 0 counts; re-fetching fresh OSM spatial data...")
+        logger.info(f"Found existing cached locality for {resolved_name}, {resolved_city}")
+        if resolved_pin and not existing.pincode:
+            existing.pincode = resolved_pin
+            db.commit()
+        all_locs = db.query(Locality).order_by(Locality.quality_score.desc()).all()
+        rank = next((idx for idx, loc in enumerate(all_locs, 1) if loc.id == existing.id), 1)
+        res = existing.to_dict()
+        res["rank"] = rank
+        res["cached"] = True
+        return res
 
     # Step 4: Fetch real OSM Overpass counts (1.5km radius BBOX)
     try:

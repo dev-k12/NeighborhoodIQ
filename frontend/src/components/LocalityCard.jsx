@@ -69,9 +69,14 @@ export default function LocalityCard({
           </div>
         </div>
 
-        {/* Archetype cluster badge */}
-        <div className="mb-4">
+        {/* Archetype cluster badge & Sparse Data Tag */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <ClusterBadge cluster={cluster} size="sm" />
+          {((counts.transit || 0) + (counts.green_space || 0) + (counts.healthcare || 0) + (counts.education || 0) + (counts.amenity || 0) + (counts.safety_proxy || 0) === 0 || locality.is_sparse) && (
+            <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+              Sparse OSM Data
+            </span>
+          )}
         </div>
 
         {/* Real Counts Snapshot Grid */}

@@ -48,6 +48,15 @@ class Locality(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
+        total_counts = (
+            (self.healthcare_count or 0) +
+            (self.education_count or 0) +
+            (self.green_space_count or 0) +
+            (self.transit_count or 0) +
+            (self.amenity_count or 0) +
+            (self.safety_proxy_count or 0)
+        )
+
         return {
             "id": self.id,
             "name": self.name,
@@ -81,6 +90,8 @@ class Locality(Base):
                 "description": self.cluster_description,
             },
             "is_seed": self.is_seed,
+            "is_sparse": bool(total_counts == 0),
+            "total_counts": total_counts,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

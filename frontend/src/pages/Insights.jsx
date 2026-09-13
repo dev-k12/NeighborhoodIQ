@@ -240,51 +240,57 @@ export default function Insights({ onSelectLocality, isDark }) {
               Settlements closer together share similar infrastructure profiles across healthcare, transit, and parks.
             </p>
 
-            <div style={{ width: '100%', height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 15, right: 15, bottom: 15, left: 15 }}>
-                  <XAxis
-                    type="number"
-                    dataKey="x"
-                    name="PCA 1 (Density & Connectivity)"
-                    stroke={isDark ? '#64748b' : '#94a3b8'}
-                    fontSize={10}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="y"
-                    name="PCA 2 (Greenery vs Retail)"
-                    stroke={isDark ? '#64748b' : '#94a3b8'}
-                    fontSize={10}
-                    tickLine={false}
-                  />
-                  <ZAxis range={[70, 70]} />
-                  <RechartsTooltip
-                    cursor={{ strokeDasharray: '3 3' }}
-                    content={({ payload }) => {
-                      if (!payload || !payload.length) return null;
-                      const data = payload[0].payload;
-                      return (
-                        <div className="p-3 rounded-xl bg-obsidian-950 text-white text-xs shadow-xl border border-obsidian-800 space-y-1 font-mono">
-                          <p className="font-bold text-emerald-400">{data.name} ({data.city})</p>
-                          <p className="text-obsidian-muted text-[11px]">{data.cluster_label}</p>
-                          <p className="text-obsidian-muted text-[10px]">Quality Spec: {data.quality_score}</p>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Scatter
-                    data={clusterData?.scatter_points || []}
-                    onClick={(entry) => onSelectLocality(entry.id)}
-                    className="cursor-pointer"
-                  >
-                    {(clusterData?.scatter_points || []).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color || '#10B981'} />
-                    ))}
-                  </Scatter>
-                </ScatterChart>
-              </ResponsiveContainer>
+            <div style={{ width: '100%', height: 320 }} className="flex items-center justify-center">
+              {clusterData?.scatter_points?.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 15, right: 15, bottom: 15, left: 15 }}>
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      name="PCA 1 (Density & Connectivity)"
+                      stroke={isDark ? '#64748b' : '#94a3b8'}
+                      fontSize={10}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      name="PCA 2 (Greenery vs Retail)"
+                      stroke={isDark ? '#64748b' : '#94a3b8'}
+                      fontSize={10}
+                      tickLine={false}
+                    />
+                    <ZAxis range={[70, 70]} />
+                    <RechartsTooltip
+                      cursor={{ strokeDasharray: '3 3' }}
+                      content={({ payload }) => {
+                        if (!payload || !payload.length) return null;
+                        const data = payload[0].payload;
+                        return (
+                          <div className="p-3 rounded-xl bg-obsidian-950 text-white text-xs shadow-xl border border-obsidian-800 space-y-1 font-mono">
+                            <p className="font-bold text-emerald-400">{data.name} ({data.city})</p>
+                            <p className="text-obsidian-muted text-[11px]">{data.cluster_label}</p>
+                            <p className="text-obsidian-muted text-[10px]">Quality Spec: {data.quality_score}</p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Scatter
+                      data={clusterData?.scatter_points || []}
+                      onClick={(entry) => onSelectLocality(entry.id)}
+                      className="cursor-pointer"
+                    >
+                      {(clusterData?.scatter_points || []).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color || '#10B981'} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center text-xs font-mono text-paper-muted dark:text-obsidian-muted">
+                  {loading ? "PROJECTING PCA 2D MULTI-DIMENSIONAL VECTORS..." : "NO LOCALITY DATA AVAILABLE TO PROJECT CLUSTERS."}
+                </div>
+              )}
             </div>
           </div>
 
@@ -385,8 +391,8 @@ export default function Insights({ onSelectLocality, isDark }) {
               </div>
             </div>
           ) : (
-            <div className="py-10 text-center text-xs font-mono text-paper-muted dark:text-obsidian-muted">
-              COMPUTING CORRELATION MATRIX FROM REPOSITORIES...
+            <div className="py-12 text-center text-xs font-mono text-paper-muted dark:text-obsidian-muted">
+              {loading ? "COMPUTING CORRELATION MATRIX FROM REPOSITORIES..." : "NO LOCALITY DATA AVAILABLE TO COMPUTE CORRELATION MATRIX."}
             </div>
           )}
         </div>

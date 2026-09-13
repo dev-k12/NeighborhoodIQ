@@ -57,9 +57,12 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
   }, [selectedIds]);
 
   const addLocality = (id) => {
-    if (selectedIds.includes(id)) return;
-    if (selectedIds.length >= 3) {
-      alert('You can compare up to 3 localities simultaneously.');
+    if (selectedIds.includes(id)) {
+      alert('This settlement is already added to the comparison.');
+      return;
+    }
+    if (selectedIds.length >= 4) {
+      alert('You can compare up to 4 localities simultaneously.');
       return;
     }
     setSelectedIds([...selectedIds, id]);
@@ -89,7 +92,7 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
             Comparative Settlement <span className="italic">Ledger</span>
           </h1>
           <p className="text-xs sm:text-sm text-paper-muted dark:text-obsidian-muted font-sans mt-1">
-            Juxtapose genuine 1,500m OpenStreetMap infrastructure densities between 2–3 localities simultaneously.
+            Juxtapose genuine 1,500m OpenStreetMap infrastructure densities between 2–4 localities simultaneously.
           </p>
         </div>
 
@@ -97,11 +100,11 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
         <div className="relative">
           <button
             onClick={() => setPickerOpen(!pickerOpen)}
-            disabled={selectedIds.length >= 3}
+            disabled={selectedIds.length >= 4}
             className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-obsidian-950 hover:bg-emerald-600 dark:bg-white dark:text-obsidian-950 dark:hover:bg-emerald-400 disabled:opacity-50 text-white font-medium text-xs shadow-paper transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Settlement ({selectedIds.length}/3)</span>
+            <span>Add Settlement ({selectedIds.length}/4)</span>
             <ChevronDown className="w-3.5 h-3.5 opacity-70" />
           </button>
 
@@ -146,7 +149,8 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
               const borderColors = [
                 'border-emerald-500 dark:border-emerald-400',
                 'border-sky-500 dark:border-sky-400',
-                'border-amber-500 dark:border-amber-400'
+                'border-amber-500 dark:border-amber-400',
+                'border-purple-500 dark:border-purple-400'
               ];
               return (
                 <div

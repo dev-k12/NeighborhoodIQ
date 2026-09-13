@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 import math
 
+import re
+
 USER_AGENT = "NeighborhoodIQ/1.0"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 OVERPASS_SERVERS = [
@@ -92,6 +94,8 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
                     city or "City"
                 )
                 resolved_state = address.get("state") or address.get("country") or "India"
+                raw_postcode = address.get("postcode", "")
+                valid_pin = str(raw_postcode).strip() if (raw_postcode and re.match(r"^[1-9][0-9]{5}$", str(raw_postcode).strip())) else None
                 return {
                     "name": clean_name.title(),
                     "city": resolved_city,
@@ -99,7 +103,7 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
                     "latitude": lat,
                     "longitude": lon,
                     "display_name": display_name,
-                    "pincode": address.get("postcode")
+                    "pincode": valid_pin
                 }
         except Exception as e:
             logger.error(f"Geocoding error for '{search_query}': {e}")

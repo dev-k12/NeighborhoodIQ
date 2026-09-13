@@ -45,14 +45,18 @@ def compare_localities(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid locality IDs format. Must be comma-separated integers.")
 
+    if len(parsed_ids) != len(set(parsed_ids)):
+        raise HTTPException(status_code=400, detail="Duplicate locality IDs provided. Each locality in a comparison must be distinct.")
+
     if len(parsed_ids) < 2 or len(parsed_ids) > 4:
-        raise HTTPException(status_code=400, detail="Please select 2 or 3 localities to compare.")
+        raise HTTPException(status_code=400, detail="Please select between 2 and 4 localities to compare.")
 
     localities = db.query(Locality).filter(Locality.id.in_(parsed_ids)).all()
-    if len(localities) < len(parsed_ids):
-        found_ids = {l.id for l in localities}
-        missing = set(parsed_ids) - found_ids
-        raise HTTPException(status_code=404, detail=f"Localities with IDs {missing} not found.")
+    found_ids = {l.id for l in localities}
+    missing_ids = [pid for pid in parsed_ids if pid not in found_ids]
+    if missing_ids:
+        raise HTTPException(status_code=404, detail=f"Localities with IDs {missing_ids} not found.")
+
 
     # Sort in order of requested IDs
     id_order = {val: i for i, val in enumerate(parsed_ids)}

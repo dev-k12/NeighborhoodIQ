@@ -5,6 +5,8 @@ import RadarChart from '../components/RadarChart';
 import ClusterBadge from '../components/ClusterBadge';
 import { getLocalityById } from '../api/client';
 
+import { jsPDF } from 'jspdf';
+
 const METRIC_DETAILS = [
   { key: 'transit', label: 'Transit Access', icon: Bus, desc: 'Bus stops & railway/metro stations (deduplicated)' },
   { key: 'healthcare', label: 'Healthcare & Clinics', icon: HeartPulse, desc: 'Hospitals, clinics, and pharmacies' },
@@ -47,6 +49,8 @@ export default function LocalityDetail({ localityId, onBack, onCompare, isDark }
     name,
     city,
     state,
+    pincode,
+    district,
     latitude,
     longitude,
     quality_score,
@@ -57,6 +61,7 @@ export default function LocalityDetail({ localityId, onBack, onCompare, isDark }
     total_localities,
     percentile,
     city_benchmarks = {},
+    is_sparse,
   } = locality;
 
   // Radar dataset comparing Locality vs City Average
@@ -67,8 +72,178 @@ export default function LocalityDetail({ localityId, onBack, onCompare, isDark }
   }));
 
   const handleDownloadReport = () => {
-    // Triggers standard print dialog optimized via CSS print media styles
-    window.print();
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      // Background
+      doc.setFillColor(250, 250, 248);
+      doc.rect(0, 0, 210, 297, 'F');
+
+      // Accent Line
+      doc.setFillColor(16, 185, 129);
+      doc.rect(14, 12, 182, 3, 'F');
+
+      // Brand Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(16, 185, 129);
+      doc.text('NEIGHBORHOODIQ • URBAN LIVABILITY DOSSIER', 14, 22);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(115, 115, 115);
+      doc.text(`REPORT ID: NIQ-${locality.id.toString().padStart(4, '0')} • VERIFIED OPENSTREETMAP DATA`, 14, 26);
+
+      // Divider
+      doc.setDrawColor(220, 220, 215);
+      doc.setLineWidth(0.3);
+      doc.line(14, 29, 196, 29);
+
+      // Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(24, 24, 27);
+      doc.text(locality.name, 14, 40);
+
+      // Subtitle
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(82, 82, 91);
+      const locSub = [
+        locality.district && locality.district.toLowerCase() !== locality.city.toLowerCase()
+          ? `${locality.city} (${locality.district}), ${locality.state || 'India'}`
+          : `${locality.city}, ${locality.state || 'India'}`,
+        locality.pincode ? `PIN: ${locality.pincode}` : null,
+      ].filter(Boolean).join(' • ');
+      doc.text(locSub, 14, 46);
+
+      // Coordinates
+      doc.setFontSize(8);
+      doc.setTextColor(115, 115, 115);
+      doc.text(`LATITUDE: ${locality.latitude.toFixed(4)}° N, LONGITUDE: ${locality.longitude.toFixed(4)}° E • 1,500m CATCHMENT RADIUS`, 14, 51);
+
+      // Quality Score Box (Left)
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(225, 225, 220);
+      doc.roundedRect(14, 56, 88, 38, 3, 3, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(16, 185, 129);
+      doc.text('COMPOSITE QUALITY SCORE', 20, 64);
+
+      doc.setFontSize(28);
+      doc.setTextColor(24, 24, 27);
+      doc.text(`${(locality.quality_score || 0).toFixed(1)}`, 20, 78);
+
+      doc.setFontSize(10);
+      doc.setTextColor(115, 115, 115);
+      doc.text('/ 100', 60, 77);
+
+      doc.setFontSize(8);
+      doc.setTextColor(82, 82, 91);
+      doc.text(`Rank #${rank || 'N/A'} of ${total_localities || 30} • ${percentile || 90}th Percentile`, 20, 86);
+
+      // Cluster Archetype Box (Right)
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(225, 225, 220);
+      doc.roundedRect(108, 56, 88, 38, 3, 3, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(14, 165, 233);
+      doc.text('K-MEANS CLUSTER ARCHETYPE', 114, 64);
+
+      doc.setFontSize(13);
+      doc.setTextColor(24, 24, 27);
+      doc.text(locality.cluster?.label || 'Balanced Suburb', 114, 73);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 105);
+      const descLines = doc.splitTextToSize(locality.cluster?.description || 'Balanced urban community infrastructure with accessible residential conveniences.', 76);
+      doc.text(descLines, 114, 80);
+
+      // Section: Dimensional Metrics Table
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(24, 24, 27);
+      doc.text('CIVIC INFRASTRUCTURE SPECIFICATION MATRIX', 14, 105);
+
+      // Table Header
+      doc.setFillColor(240, 240, 236);
+      doc.rect(14, 109, 182, 8, 'F');
+
+      doc.setFontSize(8);
+      doc.setTextColor(82, 82, 91);
+      doc.text('DIMENSION', 18, 114.5);
+      doc.text('SCORE (0-100)', 85, 114.5);
+      doc.text('RAW OSM COUNT', 125, 114.5);
+      doc.text('CITY BENCHMARK', 160, 114.5);
+
+      let yPos = 123;
+      METRIC_DETAILS.forEach((m, idx) => {
+        if (idx % 2 === 1) {
+          doc.setFillColor(248, 248, 245);
+          doc.rect(14, yPos - 5.5, 182, 9, 'F');
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(24, 24, 27);
+        doc.text(m.label, 18, yPos);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        const scoreVal = scores[m.key] !== undefined ? scores[m.key].toFixed(1) : '0.0';
+        doc.text(scoreVal, 88, yPos);
+
+        const countVal = counts[m.key] !== undefined ? String(counts[m.key]) : '0';
+        doc.text(countVal, 130, yPos);
+
+        const benchVal = city_benchmarks[m.key] !== undefined ? `${city_benchmarks[m.key].toFixed(1)} Avg` : '50.0 Avg';
+        doc.text(benchVal, 162, yPos);
+
+        yPos += 9.5;
+      });
+
+      // Spatial Methodology Box
+      yPos += 4;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(225, 225, 220);
+      doc.roundedRect(14, yPos, 182, 36, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(16, 185, 129);
+      doc.text('DATA VERIFICATION & SPATIAL METHODOLOGY', 20, yPos + 7);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(90, 90, 95);
+      const methText = 'All infrastructure counts are fetched directly from OpenStreetMap Overpass QL across a standardized 1,500-meter (1.5 km) walkable catchment bounding box. Public transport nodes are strictly deduplicated by (osm_type, osm_id). Scores are mathematically normalized on a logarithmic saturating scale against national benchmarks without artificial civic presence minimums.';
+      doc.text(doc.splitTextToSize(methText, 170), 20, yPos + 13);
+
+      // Footer
+      doc.setDrawColor(220, 220, 215);
+      doc.line(14, 275, 196, 275);
+
+      doc.setFontSize(7);
+      doc.setTextColor(130, 130, 135);
+      doc.text(`Generated on ${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} • NeighborhoodIQ Open Data Analytics`, 14, 281);
+      doc.text('Page 1 of 1 • Official Urban Livability Assessment', 196, 281, { align: 'right' });
+
+      // Trigger automatic browser download
+      const cleanFileName = `${locality.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_Livability_Report.pdf`;
+      doc.save(cleanFileName);
+    } catch (err) {
+      console.error('Failed to generate PDF dossier:', err);
+      window.print();
+    }
   };
 
   const handleShare = () => {
@@ -76,6 +251,7 @@ export default function LocalityDetail({ localityId, onBack, onCompare, isDark }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
 
   return (
     <div className="space-y-8 pb-20 print:p-0 print:space-y-4">
@@ -111,10 +287,25 @@ export default function LocalityDetail({ localityId, onBack, onCompare, isDark }
             className="inline-flex items-center space-x-1.5 text-xs font-medium text-white bg-obsidian-950 hover:bg-emerald-600 dark:bg-white dark:text-obsidian-950 dark:hover:bg-emerald-400 px-4 py-2 rounded-xl shadow-xs transition-all cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Print Dossier (PDF)</span>
+            <span>Download Report (PDF)</span>
           </button>
         </div>
       </div>
+
+      {/* Sparse Data Disclaimer if no mapped OSM entities */}
+      {(is_sparse || (counts.transit === 0 && counts.healthcare === 0 && counts.green_space === 0 && counts.education === 0 && counts.amenity === 0)) && (
+        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4.5 flex items-start space-x-3 text-amber-900 dark:text-amber-200 text-xs font-mono">
+          <Sparkles className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className="space-y-0.5 font-sans">
+            <p className="font-bold font-mono text-[11px] text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+              Sparse OpenStreetMap Mapping
+            </p>
+            <p className="text-xs text-amber-800/90 dark:text-amber-200/90 leading-relaxed">
+              This locality or rural area currently has minimal mapped civic infrastructure nodes in OpenStreetMap. Displayed scores reflect genuine raw counts without artificial floors or synthetic inflation.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Hero Dossier Card */}
       <div className="bg-paper-50 dark:bg-obsidian-900 rounded-3xl border border-paper-border dark:border-obsidian-800 p-6 sm:p-10 shadow-paper">

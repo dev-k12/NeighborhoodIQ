@@ -84,7 +84,9 @@ def fetch_all_seed_localities(force_refresh: bool = False):
         record = {
             "name": name,
             "city": city,
+            "district": geo.get("district") or city,
             "state": state or geo.get("state", ""),
+            "pincode": geo.get("pincode"),
             "latitude": lat,
             "longitude": lon,
             "healthcare_count": counts["healthcare_count"],
@@ -146,7 +148,9 @@ def seed_database(records: list):
             loc = Locality(
                 name=row["name"],
                 city=row["city"],
+                district=str(row["district"]) if pd.notna(row.get("district")) else str(row["city"]),
                 state=row["state"],
+                pincode=str(row["pincode"]) if pd.notna(row.get("pincode")) else None,
                 latitude=float(row["latitude"]),
                 longitude=float(row["longitude"]),
                 healthcare_count=int(row["healthcare_count"]),

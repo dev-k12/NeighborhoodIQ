@@ -11,9 +11,17 @@ from app.models.locality import Locality
 from app.analytics.osm_client import geocode_locality, fetch_osm_counts
 from app.analytics.scoring import compute_single_locality_scores, calculate_quality_score, FEATURE_KEYS
 
+"""
+Geographic Navigation Routes
+NOTE: The data in india_geo_hierarchy.json provides an illustrative/approximate
+reference list of states, districts, and notable localities for UI exploration
+and demonstration purposes, not an authoritative or exhaustive government census/survey.
+Live geocoding and scoring dynamically resolve real OpenStreetMap coordinates and 1500m catchment POIs.
+"""
+
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/geo", tags=["Geographic Cascading Engine"])
+router = APIRouter(prefix="/geo", tags=["Geographic Reference Directory (Illustrative)"])
 
 DATA_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -48,13 +56,15 @@ class ScoreLocalityRequest(BaseModel):
 @router.get("/states")
 def get_states():
     """
-    Get all available Indian states and Union Territories (all 36 entities).
+    Get all available Indian states and Union Territories (illustrative reference list).
     """
     geo_data = get_geo_data()
     return {
         "count": len(geo_data),
-        "states": sorted(list(geo_data.keys()))
+        "states": sorted(list(geo_data.keys())),
+        "disclaimer": "Illustrative/approximate geographic reference directory for exploration."
     }
+
 
 
 @router.get("/districts")
@@ -216,9 +226,9 @@ def score_geographic_locality(req: ScoreLocalityRequest, db: Session = Depends(g
         (Locality.district.ilike(f"%{resolved_city}%") | Locality.city.ilike(f"%{resolved_city}%"))
     ).first()
 
-    # Step 3: Fetch real OSM Overpass counts (2.2km catchment)
+    # Step 3: Fetch real OSM Overpass counts (1.5km catchment)
     try:
-        counts = fetch_osm_counts(lat, lon, radius=2200, delay=0.2)
+        counts = fetch_osm_counts(lat, lon, radius=1500, delay=0.2)
     except RuntimeError as err:
         logger.error(f"Overpass live query failed: {err}")
         raise HTTPException(
@@ -249,22 +259,27 @@ def score_geographic_locality(req: ScoreLocalityRequest, db: Session = Depends(g
         cluster_description = "Emerging residential pocket undergoing infrastructure expansion."
 
     # Step 6: Persist or update
+    resolved_pin = geo.get("pincode")
     if existing:
         target_loc = existing
         target_loc.district = district
         target_loc.city = resolved_city
         target_loc.state = state
+        if resolved_pin:
+            target_loc.pincode = resolved_pin
     else:
         target_loc = Locality(
             name=name,
             city=resolved_city,
             district=district,
             state=state,
+            pincode=resolved_pin,
             latitude=lat,
             longitude=lon,
             is_seed=True
         )
         db.add(target_loc)
+
 
     # Handle both count naming styles
     target_loc.latitude = lat

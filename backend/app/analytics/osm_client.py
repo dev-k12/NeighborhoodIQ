@@ -41,6 +41,7 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
     """
     Geocode a locality query into real latitude and longitude using OSM Nominatim.
     Works for any real place name worldwide.
+    Always tries both the query with ', India' appended and the raw query.
     """
     headers = {"User-Agent": USER_AGENT}
     
@@ -50,8 +51,9 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
         query_parts.append(city.strip())
     
     base_query = ", ".join(query_parts)
-    # If the user hasn't specified a country and there's no comma, try with India first then worldwide
-    if "," in base_query:
+    # Always try both the query with ', India' appended and the raw query,
+    # regardless of whether the raw query contains a comma
+    if base_query.strip().lower().endswith("india"):
         candidate_queries = [base_query]
     else:
         candidate_queries = [f"{base_query}, India", base_query]
@@ -96,13 +98,72 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
                     "state": resolved_state,
                     "latitude": lat,
                     "longitude": lon,
-                    "display_name": display_name
+                    "display_name": display_name,
+                    "pincode": address.get("postcode")
                 }
         except Exception as e:
             logger.error(f"Geocoding error for '{search_query}': {e}")
             continue
     
     return None
+
+
+def geocode_pincode(pincode: str) -> Optional[Dict[str, Any]]:
+    """
+    Resolve an Indian 6-digit postal code (PIN code) into coordinates,
+    area name, district, and state using Nominatim postalcode query.
+    """
+    clean_pin = str(pincode).strip()
+    headers = {"User-Agent": USER_AGENT}
+
+    params = {
+        "postalcode": clean_pin,
+        "country": "India",
+        "format": "jsonv2",
+        "addressdetails": 1,
+        "limit": 5
+    }
+
+    try:
+        response = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=12)
+        if response.status_code == 200 and response.json():
+            items = response.json()
+            data = items[0]
+            lat = float(data["lat"])
+            lon = float(data["lon"])
+            display_name = data.get("display_name", "")
+            address = data.get("address", {})
+            name = (
+                address.get("suburb") or
+                address.get("neighbourhood") or
+                address.get("residential") or
+                address.get("village") or
+                address.get("town") or
+                address.get("city") or
+                f"PIN {clean_pin}"
+            )
+            resolved_city = (
+                address.get("city") or
+                address.get("town") or
+                address.get("state_district") or
+                address.get("county") or
+                "District"
+            )
+            resolved_state = address.get("state") or "India"
+            return {
+                "name": name.title(),
+                "city": resolved_city,
+                "state": resolved_state,
+                "latitude": lat,
+                "longitude": lon,
+                "display_name": display_name,
+                "pincode": clean_pin
+            }
+    except Exception as e:
+        logger.error(f"Pincode geocoding error for '{clean_pin}': {e}")
+
+    # Fallback to general query
+    return geocode_locality(clean_pin)
 
 
 def fetch_osm_counts(
@@ -113,7 +174,7 @@ def fetch_osm_counts(
 ) -> Dict[str, int]:
     """
     Fetch raw counts of healthcare, education, green spaces, transit, amenities,
-    and civic safety infrastructure within an adaptive catchment bounding box (~2.2 km).
+    and civic safety infrastructure within an adaptive catchment bounding box (1500m / 1.5 km).
     
     Covers the full spectrum of OpenStreetMap tagging used across Tier-1 metros,
     Tier-2 state capitals, and Tier-3 district headquarters in India.
@@ -122,7 +183,7 @@ def fetch_osm_counts(
     tags (e.g. highway=bus_stop and public_transport=platform on the same entity)
     from artificially inflating counts.
     """
-    radius = radius or 2200
+    radius = radius or 1500
     delay = delay if delay is not None else 0.4
     timeout = APP_CONFIG.get("overpass", {}).get("timeout_seconds", 25)
 
@@ -267,26 +328,12 @@ def fetch_osm_counts(
     raw_amenity = len(amenity_ids)
     raw_safety = len(safety_proxy_ids)
 
-    # In Indian cities and district towns, basic civic presence is always present even when individual OSM POI nodes are partially mapped
-    # If a town has notable healthcare/green infrastructure (e.g. 10+ elements), apply realistic civic presence floors
-    has_civic_infrastructure = (raw_health + raw_green) >= 10
-
-    if has_civic_infrastructure:
-        final_transit = max(raw_transit, 2)
-        final_edu = max(raw_edu, 3)
-        final_amenity = max(raw_amenity, 8)
-        final_safety = max(raw_safety, 1)
-    else:
-        final_transit = raw_transit
-        final_edu = raw_edu
-        final_amenity = raw_amenity
-        final_safety = raw_safety
-
     return {
         "healthcare_count": raw_health,
-        "education_count": final_edu,
+        "education_count": raw_edu,
         "green_space_count": raw_green,
-        "transit_count": final_transit,
-        "amenity_count": final_amenity,
-        "safety_proxy_count": final_safety,
+        "transit_count": raw_transit,
+        "amenity_count": raw_amenity,
+        "safety_proxy_count": raw_safety,
     }
+

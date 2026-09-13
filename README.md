@@ -112,18 +112,22 @@ Open `http://localhost:5173` in your browser.
 - **Pune**: Koregaon Park, Baner, Hinjewadi, Viman Nagar, Kothrud, Hadapsar
 - **Hyderabad**: Banjara Hills, Gachibowli, Madhapur, Kukatpally, Jubilee Hills, Secunderabad
 
-### Worldwide Live Lookup
-NeighborhoodIQ is not limited to the 30 seed localities. Type any real neighborhood or place name (e.g. *Connaught Place*, *Juhu*, *Whitefield*, or even international landmarks) into the **"Score any neighborhood outside the seed list"** search bar. The backend will geocode via Nominatim, query Overpass within 1.5 km, deduplicate entities, compute normalized scores, and save it to the SQLite database.
+### Worldwide Live & 6-Digit Indian Pincode Lookup
+NeighborhoodIQ is not limited to the 30 seed localities:
+1. **6-Digit Indian PIN Codes**: Enter any valid 6-digit Indian postal code (e.g. `110001`, `203001`, `560001`, `400050`). The engine automatically detects the PIN format, resolves the postal area coordinates using India Post's directory and Nominatim postalcode geocoding, queries live OpenStreetMap data within a 1,500m catchment, and scores the locality.
+2. **Global Locality Names**: Type any real neighborhood or place name (e.g. *Connaught Place*, *Juhu*, *Kala Aam*, *Lal Chowk*). The backend geocodes via Nominatim (testing both the query with `, India` appended and the raw query), queries Overpass within 1,500m, deduplicates entities, computes normalized scores, and persists to SQLite.
 
 ---
 
 ## ⚠️ Data Sources & Limitations
 
-1. **OpenStreetMap Public Data**: All infrastructure counts are derived from genuine OpenStreetMap tags within a 1.5 km radius circle around the geocoded coordinates. While OSM is the most detailed open geospatial database in the world, coverage density can vary slightly between core metropolitan areas and newly developed peripheral zones.
-2. **Police Station Density as a Civic Proxy**: Official street-level or neighborhood-level crime incident data is not published via open APIs in India. Consequently, the safety dimension in NeighborhoodIQ reflects the density and proximity of police stations and outposts within the 1.5 km catchment area. This is presented as an institutional civic infrastructure proxy, not as an official crime rate index.
-3. **Walkable Catchment Radius**: A 1.5 km radial buffer represents an approximate 15-to-20-minute walk or a 5-minute local transit trip, representing typical residential neighborhood accessibility.
+1. **OpenStreetMap Public Data**: All infrastructure counts are derived from genuine OpenStreetMap tags within a standardized **1,500m (1.5 km) radius circle** around the geocoded coordinates. Overpass counts are returned strictly as raw values without artificial minimums or civic presence floors.
+2. **Illustrative Geographic Reference Directory**: The `/geo/*` endpoints and `india_geo_hierarchy.json` dataset provide an *illustrative/approximate reference directory* of Indian states, districts, and notable localities designed for exploratory UI navigation. It is not an authoritative government census or official delimitation survey. Actual coordinates and amenity counts are always dynamically fetched from OpenStreetMap.
+3. **Police Station Density as a Civic Proxy**: Official street-level crime incident data is not published via open APIs in India. Consequently, the safety dimension in NeighborhoodIQ reflects the density and proximity of police stations and outposts within the 1.5 km catchment area as an institutional civic infrastructure proxy, not as an official crime rate index.
+4. **Standardized 1,500m Catchment Radius**: Every code path across the application strictly uses a uniform 1,500m (1.5 km) catchment radius, representing an accessible 15-to-20-minute walk or short transit ride.
 
 ---
 
 ## 📜 License
 MIT License. Built for open, transparent urban data analytics.
+

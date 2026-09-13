@@ -13,6 +13,7 @@ class Locality(Base):
     city = Column(String(100), nullable=False, index=True)
     district = Column(String(100), nullable=True, index=True)
     state = Column(String(100), nullable=True)
+    pincode = Column(String(10), nullable=True, index=True)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
 
@@ -53,6 +54,7 @@ class Locality(Base):
             "city": self.city,
             "district": self.district or self.city,
             "state": self.state,
+            "pincode": self.pincode,
             "latitude": self.latitude,
             "longitude": self.longitude,
             "counts": {
@@ -103,7 +105,9 @@ class LocalityResponse(BaseModel):
     id: int
     name: str
     city: str
+    district: Optional[str] = None
     state: Optional[str] = None
+    pincode: Optional[str] = None
     latitude: float
     longitude: float
     counts: Dict[str, Any]
@@ -112,3 +116,4 @@ class LocalityResponse(BaseModel):
     cluster: Dict[str, Any]
     is_seed: bool
     rank: Optional[int] = None
+

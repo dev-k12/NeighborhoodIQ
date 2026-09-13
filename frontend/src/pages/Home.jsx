@@ -127,15 +127,16 @@ export default function Home({ onSelectLocality, onCompareLocalities, comparedId
   };
 
   const SUGGESTED_PLACES = [
+    '110001',
+    '203001',
+    '560038',
     'Bulandshahr',
     'Hazratganj, Lucknow',
     'C-Scheme, Jaipur',
     'Connaught Place, Delhi',
     'Sector 17, Chandigarh',
-    'Bodakdev, Ahmedabad',
     'Salt Lake, Kolkata',
-    'Anna Nagar, Chennai',
-    'Vijay Nagar, Indore'
+    'Anna Nagar, Chennai'
   ];
 
   return (
@@ -209,10 +210,10 @@ export default function Home({ onSelectLocality, onCompareLocalities, comparedId
             <span>Ad-Hoc Spatial Lookup Terminal</span>
           </div>
           <h2 className="text-base sm:text-lg font-bold text-paper-ink dark:text-white">
-            Score any specific neighborhood, ward, or colony live
+            Score any specific neighborhood, ward, or 6-digit PIN code live
           </h2>
           <p className="text-xs text-paper-muted dark:text-obsidian-muted mb-4 leading-relaxed">
-            Enter any place name across India (e.g. <em>Hazratganj, Lucknow</em>, <em>Kala Aam, Bulandshahr</em>, or <em>Indiranagar, Bangalore</em>). Our backend geocodes coordinates, queries OpenStreetMap within 2.2 km, deduplicates transit stations, and computes verified livability metrics live.
+            Enter any 6-digit Indian PIN code (e.g. <em>110001</em>, <em>203001</em>, <em>560038</em>) or locality name across India. Our backend resolves coordinates, queries OpenStreetMap Overpass within a 1,500m (1.5 km) catchment, deduplicates transit stations, and computes verified livability metrics live.
           </p>
 
           <form onSubmit={handleWorldwideLookup} className="flex flex-col sm:flex-row gap-2.5">
@@ -220,7 +221,7 @@ export default function Home({ onSelectLocality, onCompareLocalities, comparedId
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-paper-muted dark:text-obsidian-muted" />
               <input
                 type="text"
-                placeholder="Type any place name (e.g. Hazratganj, Lucknow or Kala Aam, Bulandshahr)..."
+                placeholder="Enter place name or 6-digit Indian PIN code (e.g. 110001, 203001, Kala Aam)..."
                 value={worldwideQuery}
                 onChange={(e) => setWorldwideQuery(e.target.value)}
                 disabled={lookupLoading}

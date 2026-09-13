@@ -230,13 +230,13 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
           <div className="space-y-2">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>ARCHIVE INDEX • 36 STATES & UTs • 450+ DISTRICTS • 2,600+ SETTLEMENTS</span>
+              <span>REFERENCE DIRECTORY • 36 STATES & UTs • 450+ DISTRICTS (ILLUSTRATIVE EXPLORATION)</span>
             </div>
             <h2 className="text-xl sm:text-3xl font-serif tracking-tight text-white">
-              Sovereign Territorial <span className="italic text-emerald-400 font-normal">Catalog</span>
+              Pan-India Geographic <span className="italic text-emerald-400 font-normal">Reference Index</span>
             </h2>
             <p className="text-xs sm:text-sm text-obsidian-muted max-w-2xl font-sans leading-relaxed">
-              Navigate hierarchy from <strong className="text-obsidian-ink font-mono font-medium">State → District → Locality</strong>. Every municipal coordinate query executes genuine OpenStreetMap spatial boundary calculations with zero synthetic interpolation.
+              Explore Indian geography from <strong className="text-obsidian-ink font-mono font-medium">State → District → Locality</strong> using an illustrative reference directory. Every locality query executes live OpenStreetMap Overpass spatial queries within 1,500m catchment with zero synthetic interpolation.
             </p>
           </div>
 

@@ -28,6 +28,19 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing SQLite database tables...")
     Base.metadata.create_all(bind=engine)
 
+    # Automatic schema migration check
+    with engine.connect() as conn:
+        from sqlalchemy import text
+        existing_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(localities)")).fetchall()]
+        if "pincode" not in existing_cols:
+            logger.info("Migrating schema: Adding 'pincode' column to localities table...")
+            conn.execute(text("ALTER TABLE localities ADD COLUMN pincode VARCHAR(10)"))
+            conn.commit()
+        if "district" not in existing_cols:
+            logger.info("Migrating schema: Adding 'district' column to localities table...")
+            conn.execute(text("ALTER TABLE localities ADD COLUMN district VARCHAR(100)"))
+            conn.commit()
+
     # Check if database is empty; if so, populate from snapshot
     db = SessionLocal()
     try:

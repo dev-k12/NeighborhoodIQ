@@ -163,8 +163,8 @@ def batch_seed_india():
             lat = geo["latitude"]
             lon = geo["longitude"]
 
-            # Query Overpass API with 2.2km radius
-            counts = fetch_osm_counts(lat, lon, radius=2200, delay=0.2)
+            # Query Overpass API with 1.5km (1500m) radius
+            counts = fetch_osm_counts(lat, lon, radius=1500, delay=0.2)
             scores = compute_single_locality_scores(counts)
             quality_score = calculate_quality_score(scores)
 
@@ -210,13 +210,16 @@ def batch_seed_india():
                 existing.safety_proxy_score = scores["safety_proxy_score"]
                 existing.quality_score = quality_score
                 existing.cluster_id = cluster_id
-                existing.cluster_label = cluster_label
-                existing.cluster_description = cluster_desc
+                if geo.get("pincode"):
+                    existing.pincode = geo.get("pincode")
+                existing.district = clean_dist
             else:
                 new_loc = Locality(
                     name=name,
                     city=clean_dist,
+                    district=clean_dist,
                     state=state,
+                    pincode=geo.get("pincode"),
                     latitude=lat,
                     longitude=lon,
                     healthcare_count=h_count,

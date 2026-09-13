@@ -1,31 +1,55 @@
+import json
 import logging
-from typing import Optional, List
+import os
+import re
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 import pandas as pd
 
 from app.db.database import get_db
 from app.models.locality import Locality
-from app.analytics.osm_client import geocode_locality, fetch_osm_counts
+from app.analytics.osm_client import geocode_locality, geocode_pincode, fetch_osm_counts
 from app.analytics.scoring import compute_single_locality_scores, calculate_quality_score, FEATURE_KEYS
 from app.analytics.clustering import run_clustering
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/localities", tags=["Localities"])
 
+PINCODE_REGEX = re.compile(r"^\s*([1-9][0-9]{5})\s*$")
+
+PINCODES_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data",
+    "india_pincodes.json"
+)
+
+def _load_pincodes_data() -> Dict[str, Any]:
+    if os.path.exists(PINCODES_FILE):
+        try:
+            with open(PINCODES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load india_pincodes.json: {e}")
+    return {}
+
+PINCODES_DATA = _load_pincodes_data()
+
+
 
 @router.get("")
 def list_localities(
-    search: Optional[str] = Query(None, description="Search by locality name"),
+    search: Optional[str] = Query(None, description="Search by locality name or pincode"),
     city: Optional[str] = Query(None, description="Filter by city"),
     district: Optional[str] = Query(None, description="Filter by district"),
+    pincode: Optional[str] = Query(None, description="Filter by 6-digit postal code"),
     cluster: Optional[int] = Query(None, description="Filter by cluster ID (0-3)"),
     sort_by: Optional[str] = Query("quality_score", description="Field to sort by"),
     order: Optional[str] = Query("desc", description="asc or desc"),
     db: Session = Depends(get_db)
 ):
     """
-    List localities with search, filtering by city/district and cluster archetype, and dynamic sorting.
+    List localities with search, filtering by city/district, pincode, and cluster archetype, and dynamic sorting.
     """
     query = db.query(Locality)
 
@@ -35,8 +59,12 @@ def list_localities(
             (Locality.name.ilike(search_pattern)) |
             (Locality.city.ilike(search_pattern)) |
             (Locality.district.ilike(search_pattern)) |
-            (Locality.state.ilike(search_pattern))
+            (Locality.state.ilike(search_pattern)) |
+            (Locality.pincode.ilike(search_pattern))
         )
+
+    if pincode:
+        query = query.filter(Locality.pincode == pincode.strip())
 
     if district:
         clean_d = district.strip()
@@ -54,6 +82,7 @@ def list_localities(
 
     if cluster is not None:
         query = query.filter(Locality.cluster_id == cluster)
+
 
     # Compute overall ranks based on quality_score
     all_localities = db.query(Locality).order_by(Locality.quality_score.desc()).all()
@@ -84,28 +113,72 @@ def list_localities(
 
 @router.get("/lookup")
 def live_lookup_locality(
-    query: str = Query(..., min_length=2, description="Place or locality name anywhere worldwide"),
+    query: str = Query(..., min_length=2, description="Place or locality name or 6-digit Indian PIN code"),
     db: Session = Depends(get_db)
 ):
     """
     Live lookup pipeline:
-    1. Geocodes name via Nominatim for genuine latitude/longitude.
-    2. If already saved in DB (case-insensitive name match within same city), return it.
-    3. Otherwise, queries OpenStreetMap Overpass within 1.5 km radius.
-    4. Deduplicates transit & civic elements.
-    5. Normalizes scores against current database benchmarks.
-    6. Computes Quality Score and assigns archetype cluster.
-    7. Persists to SQLite so future visits are instantly cached!
+    1. Detects 6-digit Indian PIN codes or locality/district/city names.
+    2. Checks database cache for existing evaluated records.
+    3. Resolves geographic coordinates via India Post directory or OSM Nominatim.
+    4. Queries OpenStreetMap Overpass within 1.5 km (1500m) radius.
+    5. Deduplicates transit & civic elements.
+    6. Normalizes scores against current database benchmarks.
+    7. Computes Quality Score and assigns archetype cluster.
+    8. Persists to SQLite (with pincode & district) so future visits are instantly cached!
     """
     cleaned_query = query.strip()
     logger.info(f"Initiating live OSM lookup for: '{cleaned_query}'")
 
-    # Step 1: Geocode
-    geo = geocode_locality(cleaned_query)
+    pin_match = PINCODE_REGEX.match(cleaned_query)
+    detected_pin = pin_match.group(1) if pin_match else None
+
+    # Step 1: Check if already cached in DB by pincode
+    if detected_pin:
+        existing_pin_loc = db.query(Locality).filter(Locality.pincode == detected_pin).first()
+        if existing_pin_loc:
+            total_elements = (
+                (existing_pin_loc.healthcare_count or 0) +
+                (existing_pin_loc.education_count or 0) +
+                (existing_pin_loc.green_space_count or 0) +
+                (existing_pin_loc.transit_count or 0) +
+                (existing_pin_loc.amenity_count or 0) +
+                (existing_pin_loc.safety_proxy_count or 0)
+            )
+            if total_elements > 0:
+                logger.info(f"Found existing cached locality for PIN {detected_pin}: {existing_pin_loc.name}")
+                all_locs = db.query(Locality).order_by(Locality.quality_score.desc()).all()
+                rank = next((idx for idx, loc in enumerate(all_locs, 1) if loc.id == existing_pin_loc.id), 1)
+                res = existing_pin_loc.to_dict()
+                res["rank"] = rank
+                res["cached"] = True
+                return res
+
+    # Step 2: Geocode query or PIN code
+    geo = None
+    if detected_pin:
+        if detected_pin in PINCODES_DATA:
+            p_info = PINCODES_DATA[detected_pin]
+            geo = {
+                "name": p_info["name"],
+                "city": p_info["district"],
+                "district": p_info["district"],
+                "state": p_info["state"],
+                "latitude": p_info["latitude"],
+                "longitude": p_info["longitude"],
+                "display_name": f"{p_info['name']}, {p_info['district']}, {p_info['state']} - {detected_pin}, India",
+                "pincode": detected_pin
+            }
+        else:
+            geo = geocode_pincode(detected_pin)
+
+    if not geo:
+        geo = geocode_locality(cleaned_query)
+
     if not geo:
         raise HTTPException(
             status_code=404,
-            detail=f"Could not find coordinates for '{cleaned_query}' on OpenStreetMap. Please check the spelling."
+            detail=f"Could not find coordinates for '{cleaned_query}' on OpenStreetMap or Indian Postal Directory. Please check the spelling or PIN code."
         )
 
     lat = geo["latitude"]
@@ -113,12 +186,18 @@ def live_lookup_locality(
     resolved_name = geo["name"]
     resolved_city = geo["city"]
     resolved_state = geo["state"]
+    resolved_pin = geo.get("pincode") or detected_pin
+    resolved_district = geo.get("district") or resolved_city
 
-    # Step 2: Check if already present in DB
-    existing = db.query(Locality).filter(
-        Locality.name.ilike(resolved_name),
-        Locality.city.ilike(resolved_city)
-    ).first()
+    # Step 3: Check if already present in DB
+    existing = None
+    if resolved_pin:
+        existing = db.query(Locality).filter(Locality.pincode == resolved_pin).first()
+    if not existing:
+        existing = db.query(Locality).filter(
+            Locality.name.ilike(resolved_name),
+            Locality.city.ilike(resolved_city)
+        ).first()
 
     if existing:
         # Check if existing entry has genuine counts (not a corrupted 0-record from a prior timeout)
@@ -132,6 +211,9 @@ def live_lookup_locality(
         )
         if total_elements > 0:
             logger.info(f"Found existing cached locality for {resolved_name}, {resolved_city}")
+            if resolved_pin and not existing.pincode:
+                existing.pincode = resolved_pin
+                db.commit()
             all_locs = db.query(Locality).order_by(Locality.quality_score.desc()).all()
             rank = next((idx for idx, loc in enumerate(all_locs, 1) if loc.id == existing.id), 1)
             res = existing.to_dict()
@@ -141,7 +223,7 @@ def live_lookup_locality(
         else:
             logger.info(f"Existing record for {resolved_name} had 0 counts; re-fetching fresh OSM spatial data...")
 
-    # Step 3: Fetch real OSM Overpass counts (1.5km radius BBOX)
+    # Step 4: Fetch real OSM Overpass counts (1.5km radius BBOX)
     try:
         counts = fetch_osm_counts(lat, lon, radius=1500, delay=0.2)
     except RuntimeError as err:
@@ -151,7 +233,7 @@ def live_lookup_locality(
             detail=f"OpenStreetMap Overpass servers are momentarily experiencing high traffic. Please retry scoring '{cleaned_query}' in a few seconds."
         )
 
-    # Step 4: Calculate benchmarks from existing localities in DB
+    # Step 5: Calculate benchmarks from existing localities in DB
     all_localities = db.query(Locality).all()
     benchmarks = {}
     for feat in FEATURE_KEYS:
@@ -165,7 +247,7 @@ def live_lookup_locality(
     scores = compute_single_locality_scores(counts, benchmarks)
     quality_score = calculate_quality_score(scores)
 
-    # Step 5: Assign cluster archetype based on scores
+    # Step 6: Assign cluster archetype based on scores
     cluster_id = 0
     cluster_label = "Balanced Suburb"
     cluster_description = "Balanced community infrastructure"
@@ -187,14 +269,20 @@ def live_lookup_locality(
         cluster_label = "Developing Residential Area"
         cluster_description = "Emerging residential pocket undergoing infrastructure expansion."
 
-    # Step 6: Persist or update locality in DB
+    # Step 7: Persist or update locality in DB
     if existing:
         target_loc = existing
+        if resolved_pin:
+            target_loc.pincode = resolved_pin
+        if resolved_district:
+            target_loc.district = resolved_district
     else:
         target_loc = Locality(
             name=resolved_name,
             city=resolved_city,
+            district=resolved_district,
             state=resolved_state,
+            pincode=resolved_pin,
             latitude=lat,
             longitude=lon,
             is_seed=False
@@ -220,6 +308,10 @@ def live_lookup_locality(
     target_loc.cluster_id = cluster_id
     target_loc.cluster_label = cluster_label
     target_loc.cluster_description = cluster_description
+    if resolved_pin:
+        target_loc.pincode = resolved_pin
+    if resolved_district:
+        target_loc.district = resolved_district
 
     db.commit()
     db.refresh(target_loc)
@@ -233,6 +325,7 @@ def live_lookup_locality(
     result["cached"] = False
     result["display_name"] = geo.get("display_name", "")
     return result
+
 
 
 @router.get("/cities")

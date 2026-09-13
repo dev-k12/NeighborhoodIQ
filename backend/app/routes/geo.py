@@ -10,6 +10,7 @@ from app.db.database import get_db
 from app.models.locality import Locality
 from app.analytics.osm_client import geocode_locality, fetch_osm_counts
 from app.analytics.scoring import compute_single_locality_scores, calculate_quality_score, FEATURE_KEYS
+from app.routes.localities import find_cached_locality
 
 """
 Geographic Navigation Routes
@@ -220,11 +221,19 @@ def score_geographic_locality(req: ScoreLocalityRequest, db: Session = Depends(g
     lon = geo["longitude"]
     resolved_city = district.split("(")[0].strip()
 
-    # Step 2: Check if already exists in DB strictly for this district
-    existing = db.query(Locality).filter(
-        Locality.name.ilike(name),
-        (Locality.district.ilike(f"%{resolved_city}%") | Locality.city.ilike(f"%{resolved_city}%"))
-    ).first()
+    # Step 2: Check if already exists in DB strictly for this district or via spatial proximity
+    existing = find_cached_locality(
+        db=db,
+        lat=lat,
+        lon=lon,
+        resolved_pin=geo.get("pincode"),
+        resolved_name=name,
+        resolved_city=resolved_city,
+        resolved_district=district,
+        query_str=name,
+        proximity_meters=300.0,
+        name_proximity_meters=2500.0
+    )
 
     # Step 3: Fetch real OSM Overpass counts (1.5km catchment)
     try:

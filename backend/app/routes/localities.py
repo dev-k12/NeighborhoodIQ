@@ -9,7 +9,13 @@ import pandas as pd
 
 from app.db.database import get_db
 from app.models.locality import Locality
-from app.analytics.osm_client import geocode_locality, geocode_pincode, fetch_osm_counts
+from app.analytics.osm_client import (
+    geocode_locality,
+    geocode_pincode,
+    fetch_osm_counts,
+    haversine_distance,
+    is_name_match,
+)
 from app.analytics.scoring import compute_single_locality_scores, calculate_quality_score, FEATURE_KEYS
 from app.analytics.clustering import run_clustering
 
@@ -34,6 +40,101 @@ def _load_pincodes_data() -> Dict[str, Any]:
     return {}
 
 PINCODES_DATA = _load_pincodes_data()
+
+
+def find_cached_locality(
+    db: Session,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    resolved_pin: Optional[str] = None,
+    resolved_name: Optional[str] = None,
+    resolved_city: Optional[str] = None,
+    resolved_district: Optional[str] = None,
+    query_str: Optional[str] = None,
+    proximity_meters: float = 300.0,
+    name_proximity_meters: float = 2500.0,
+) -> Optional[Locality]:
+    """
+    Robust spatial and semantic deduplication engine.
+    Checks in sequence:
+    1. Exact 6-digit Indian PIN code match.
+    2. Spatial proximity match: any existing locality within ~300 meters.
+    3. Name-assisted proximity match: localities with matching/similar names
+       within a 2.5 km catchment radius (resolving variations like
+       'Connaught Place, New Delhi' vs 'Connaught Place, Central Delhi').
+    4. Fallback exact string match on name and city/district.
+    """
+    # 1. Match by PIN code if valid
+    if resolved_pin:
+        pin_match = db.query(Locality).filter(Locality.pincode == resolved_pin).first()
+        if pin_match:
+            total_elements = (
+                (pin_match.healthcare_count or 0) +
+                (pin_match.education_count or 0) +
+                (pin_match.green_space_count or 0) +
+                (pin_match.transit_count or 0) +
+                (pin_match.amenity_count or 0) +
+                (pin_match.safety_proxy_count or 0)
+            )
+            if total_elements > 0:
+                logger.info(f"Deduplication match by PIN code: {resolved_pin} -> '{pin_match.name}' (id={pin_match.id})")
+                return pin_match
+
+    # 2. Spatial proximity checks if coordinates are available
+    if lat is not None and lon is not None:
+        # Coarse bounding box query (~5.5 km) for efficient database filtering
+        candidates = db.query(Locality).filter(
+            Locality.latitude.between(lat - 0.05, lat + 0.05),
+            Locality.longitude.between(lon - 0.05, lon + 0.05)
+        ).all()
+
+        if candidates:
+            # Sort candidates by exact great-circle distance
+            candidate_distances = [
+                (cand, haversine_distance(lat, lon, cand.latitude, cand.longitude))
+                for cand in candidates
+            ]
+            candidate_distances.sort(key=lambda x: x[1])
+
+            closest_cand, min_dist = candidate_distances[0]
+
+            # 2a. Pure spatial proximity within threshold (e.g. ~300m)
+            if min_dist <= proximity_meters:
+                logger.info(
+                    f"Deduplication match by pure proximity: ({lat:.6f}, {lon:.6f}) is {min_dist:.1f}m "
+                    f"from '{closest_cand.name}' (id={closest_cand.id}, city='{closest_cand.city}') [threshold <= {proximity_meters}m]"
+                )
+                return closest_cand
+
+            # 2b. Name-assisted proximity match within wider catchment (e.g. 2500m)
+            for cand, dist in candidate_distances:
+                if dist <= name_proximity_meters:
+                    if (
+                        is_name_match(cand.name, resolved_name) or
+                        (query_str and is_name_match(cand.name, query_str))
+                    ):
+                        logger.info(
+                            f"Deduplication match by name + proximity: '{cand.name}' (id={cand.id}, city='{cand.city}') "
+                            f"matches query/resolved name at distance {dist:.1f}m [<= {name_proximity_meters}m]"
+                        )
+                        return cand
+
+    # 3. Fallback exact string match
+    if resolved_name and resolved_city:
+        exact = db.query(Locality).filter(
+            Locality.name.ilike(resolved_name),
+            (Locality.city.ilike(resolved_city) | Locality.district.ilike(resolved_district or resolved_city))
+        ).first()
+        if exact:
+            return exact
+
+    if query_str:
+        exact_q = db.query(Locality).filter(Locality.name.ilike(query_str.strip())).first()
+        if exact_q:
+            return exact_q
+
+    return None
+
 
 
 
@@ -199,18 +300,22 @@ def live_lookup_locality(
     resolved_pin = str(raw_pin).strip() if (raw_pin and PINCODE_REGEX.match(str(raw_pin).strip())) else None
     resolved_district = geo.get("district") or resolved_city
 
-    # Step 3: Check if already present in DB
-    existing = None
-    if resolved_pin:
-        existing = db.query(Locality).filter(Locality.pincode == resolved_pin).first()
-    if not existing:
-        existing = db.query(Locality).filter(
-            Locality.name.ilike(resolved_name),
-            Locality.city.ilike(resolved_city)
-        ).first()
+    # Step 3: Check if already present in DB using spatial proximity & semantic deduplication
+    existing = find_cached_locality(
+        db=db,
+        lat=lat,
+        lon=lon,
+        resolved_pin=resolved_pin,
+        resolved_name=resolved_name,
+        resolved_city=resolved_city,
+        resolved_district=resolved_district,
+        query_str=cleaned_query,
+        proximity_meters=300.0,
+        name_proximity_meters=2500.0
+    )
 
     if existing:
-        logger.info(f"Found existing cached locality for {resolved_name}, {resolved_city}")
+        logger.info(f"Found existing cached locality for '{cleaned_query}' / '{resolved_name}': {existing.name} (id={existing.id}, city={existing.city}, score={existing.quality_score})")
         if resolved_pin and not existing.pincode:
             existing.pincode = resolved_pin
             db.commit()
@@ -268,6 +373,20 @@ def live_lookup_locality(
         cluster_description = "Emerging residential pocket undergoing infrastructure expansion."
 
     # Step 7: Persist or update locality in DB
+    if not existing:
+        existing = find_cached_locality(
+            db=db,
+            lat=lat,
+            lon=lon,
+            resolved_pin=resolved_pin,
+            resolved_name=resolved_name,
+            resolved_city=resolved_city,
+            resolved_district=resolved_district,
+            query_str=cleaned_query,
+            proximity_meters=300.0,
+            name_proximity_meters=2500.0
+        )
+
     if existing:
         target_loc = existing
         if resolved_pin:

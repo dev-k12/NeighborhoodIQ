@@ -341,3 +341,60 @@ def fetch_osm_counts(
         "safety_proxy_count": raw_safety,
     }
 
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the great-circle distance between two points on the Earth surface
+    in decimal degrees.
+    Returns distance in meters.
+    """
+    R = 6371000.0  # Earth's mean radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(delta_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    )
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return R * c
+
+
+def is_name_match(name1: Optional[str], name2: Optional[str]) -> bool:
+    """
+    Flexible comparison of two settlement/locality names to handle administrative
+    and regional variations (e.g., 'Connaught Place' vs 'Connaught Place, New Delhi').
+    """
+    if not name1 or not name2:
+        return False
+    n1 = name1.strip().lower()
+    n2 = name2.strip().lower()
+    if n1 == n2:
+        return True
+
+    clean1 = re.sub(r"[,\-_/]+", " ", n1).strip()
+    clean2 = re.sub(r"[,\-_/]+", " ", n2).strip()
+    if clean1 == clean2:
+        return True
+
+    words1 = [w for w in clean1.split() if len(w) > 2]
+    words2 = [w for w in clean2.split() if len(w) > 2]
+
+    stopwords = {
+        "india", "delhi", "city", "north", "south", "east", "west",
+        "central", "urban", "rural", "district", "state", "nagar", "road", "block"
+    }
+    sig1 = [w for w in words1 if w not in stopwords]
+    sig2 = [w for w in words2 if w not in stopwords]
+
+    if sig1 and sig2:
+        s1 = set(sig1)
+        s2 = set(sig2)
+        if s1 == s2 or s1.issubset(s2) or s2.issubset(s1):
+            return True
+
+    return False
+
+

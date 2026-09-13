@@ -1,0 +1,36 @@
+[
+  { "name": "Hauz Khas", "city": "Delhi", "state": "Delhi" },
+  { "name": "Dwarka", "city": "Delhi", "state": "Delhi" },
+  { "name": "Rohini", "city": "Delhi", "state": "Delhi" },
+  { "name": "Vasant Kunj", "city": "Delhi", "state": "Delhi" },
+  { "name": "Karol Bagh", "city": "Delhi", "state": "Delhi" },
+  { "name": "Saket", "city": "Delhi", "state": "Delhi" },
+
+  { "name": "Bandra West", "city": "Mumbai", "state": "Maharashtra" },
+  { "name": "Andheri West", "city": "Mumbai", "state": "Maharashtra" },
+  { "name": "Powai", "city": "Mumbai", "state": "Maharashtra" },
+  { "name": "Malad West", "city": "Mumbai", "state": "Maharashtra" },
+  { "name": "Dadar", "city": "Mumbai", "state": "Maharashtra" },
+  { "name": "Borivali West", "city": "Mumbai", "state": "Maharashtra" },
+
+  { "name": "Koramangala", "city": "Bangalore", "state": "Karnataka" },
+  { "name": "Indiranagar", "city": "Bangalore", "state": "Karnataka" },
+  { "name": "Whitefield", "city": "Bangalore", "state": "Karnataka" },
+  { "name": "HSR Layout", "city": "Bangalore", "state": "Karnataka" },
+  { "name": "Jayanagar", "city": "Bangalore", "state": "Karnataka" },
+  { "name": "Electronic City", "city": "Bangalore", "state": "Karnataka" },
+
+  { "name": "Koregaon Park", "city": "Pune", "state": "Maharashtra" },
+  { "name": "Baner", "city": "Pune", "state": "Maharashtra" },
+  { "name": "Hinjewadi", "city": "Pune", "state": "Maharashtra" },
+  { "name": "Viman Nagar", "city": "Pune", "state": "Maharashtra" },
+  { "name": "Kothrud", "city": "Pune", "state": "Maharashtra" },
+  { "name": "Hadapsar", "city": "Pune", "state": "Maharashtra" },
+
+  { "name": "Banjara Hills", "city": "Hyderabad", "state": "Telangana" },
+  { "name": "Gachibowli", "city": "Hyderabad", "state": "Telangana" },
+  { "name": "Madhapur", "city": "Hyderabad", "state": "Telangana" },
+  { "name": "Kukatpally", "city": "Hyderabad", "state": "Telangana" },
+  { "name": "Jubilee Hills", "city": "Hyderabad", "state": "Telangana" },
+  { "name": "Secunderabad", "city": "Hyderabad", "state": "Telangana" }
+]

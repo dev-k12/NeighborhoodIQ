@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-paper-50 text-paper-ink font-sans antialiased selection:bg-emerald-600 selection:text-white transition-colors duration-200;
+  }
+  
+  .dark body {
+    @apply bg-obsidian-950 text-obsidian-ink;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-sans text-paper-ink dark:text-obsidian-ink;
+  }
+}
+
+/* Editorial Typography & Accents */
+.font-serif-italic {
+  font-family: 'Newsreader', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.font-mono-meta {
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.08em;
+}
+
+/* Subtle Architectural Grid Texture */
+.bg-blueprint-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(25, 24, 23, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(25, 24, 23, 0.035) 1px, transparent 1px);
+}
+
+.dark .bg-blueprint-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+}
+
+/* Tactile transitions and physics */
+.hover-lift {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-3px);
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(110, 106, 99, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(110, 106, 99, 0.45);
+}
+
+/* Glassmorphism accent panels */
+.glass-panel {
+  background: rgba(251, 251, 249, 0.86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dark .glass-panel {
+  background: rgba(12, 13, 14, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Spatial Web & Hero Animation Keyframes */
+@keyframes beamFlow {
+  0% {
+    stroke-dashoffset: 200;
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.8;
+  }
+}
+
+@keyframes orbitSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radarWave {
+  0% {
+    r: 4;
+    opacity: 1;
+    stroke-width: 2.5;
+  }
+  100% {
+    r: 48;
+    opacity: 0;
+    stroke-width: 0.5;
+  }
+}
+
+@keyframes laserPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.animate-beam-flow {
+  stroke-dasharray: 8 12;
+  animation: beamFlow 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-orbit-slow {
+  animation: orbitSpin 24s linear infinite;
+}
+
+.animate-radar-wave {
+  animation: radarWave 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.animate-laser-pulse {
+  animation: laserPulse 2s ease-in-out infinite;
+}

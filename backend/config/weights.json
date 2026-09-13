@@ -1,0 +1,35 @@
+{
+  "weights": {
+    "healthcare": 0.20,
+    "education": 0.15,
+    "green_space": 0.15,
+    "transit": 0.20,
+    "amenity": 0.15,
+    "safety_proxy": 0.15
+  },
+  "labels": {
+    "healthcare": "Healthcare & Wellness",
+    "education": "Education & Schools",
+    "green_space": "Parks & Greenery",
+    "transit": "Public Transit Access",
+    "amenity": "Daily Amenities & Retail",
+    "safety_proxy": "Police Station Presence"
+  },
+  "descriptions": {
+    "healthcare": "Hospitals, clinics, pharmacies, and healthcare centers within 1.5 km",
+    "education": "Schools, colleges, universities, and education centers within 1.5 km",
+    "green_space": "Public parks, gardens, and recreation spaces within 1.5 km",
+    "transit": "Bus stops, metro stations, and railway access points (deduplicated) within 1.5 km",
+    "amenity": "Supermarkets, restaurants, cafes, markets, and retail outlets within 1.5 km",
+    "safety_proxy": "Density of police stations within 1.5 km (rough civic proxy, not official crime statistics)"
+  },
+  "clustering": {
+    "n_clusters": 4,
+    "random_state": 42
+  },
+  "overpass": {
+    "radius_meters": 1500,
+    "timeout_seconds": 25,
+    "rate_limit_delay_seconds": 1.2
+  }
+}

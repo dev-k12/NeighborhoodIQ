@@ -113,7 +113,7 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
 
   // When District changes, load its Cities/Localities & District Summary
   useEffect(() => {
-    if (!selectedState || !selectedDistrict) return;
+    if (!selectedState || !selectedDistrict || (districts.length > 0 && !districts.includes(selectedDistrict))) return;
     async function loadCities() {
       try {
         setLoadingCities(true);
@@ -131,7 +131,7 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
       }
     }
     loadCities();
-  }, [selectedState, selectedDistrict]);
+  }, [selectedState, selectedDistrict, districts]);
 
   // Handle scoring a city/town live via OSM
   const handleScoreLive = async (cityName) => {

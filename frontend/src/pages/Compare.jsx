@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GitCompare, Plus, X, Award, CheckCircle2, ChevronDown, Sparkles, Bus, HeartPulse, GraduationCap, Trees, Store, Shield } from 'lucide-react';
+import { GitCompare, Plus, X, Award, CheckCircle2, ChevronDown, Sparkles, Bus, HeartPulse, GraduationCap, Trees, Store, Shield, AlertCircle } from 'lucide-react';
 import RadarChart from '../components/RadarChart';
 import ClusterBadge from '../components/ClusterBadge';
 import { compareLocalities, getLocalities } from '../api/client';
@@ -18,6 +18,14 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
   const [comparisonData, setComparisonData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  // Auto-dismiss notification after 4s
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => setNotification(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notification]);
 
   // Load all localities for the dropdown selector
   useEffect(() => {
@@ -57,23 +65,39 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
   }, [selectedIds]);
 
   const addLocality = (id) => {
+    const loc = allLocalities.find((l) => l.id === id);
+    const locName = loc ? loc.name : 'This locality';
+
     if (selectedIds.includes(id)) {
-      alert('This settlement is already added to the comparison.');
+      setNotification({
+        type: 'warning',
+        message: `Settlement "${locName}" is already active in your comparative ledger.`
+      });
+      setPickerOpen(false);
       return;
     }
     if (selectedIds.length >= 4) {
-      alert('You can compare up to 4 localities simultaneously.');
+      setNotification({
+        type: 'warning',
+        message: 'Comparative ledger is capped at 4 settlements simultaneously. Remove one to add another.'
+      });
+      setPickerOpen(false);
       return;
     }
+    setNotification(null);
     setSelectedIds([...selectedIds, id]);
     setPickerOpen(false);
   };
 
   const removeLocality = (id) => {
     if (selectedIds.length <= 2) {
-      alert('At least 2 localities are required for side-by-side comparison.');
+      setNotification({
+        type: 'warning',
+        message: 'A minimum of 2 settlements is required for side-by-side comparative ledger analysis.'
+      });
       return;
     }
+    setNotification(null);
     setSelectedIds(selectedIds.filter((item) => item !== id));
   };
 
@@ -110,27 +134,54 @@ export default function Compare({ selectedIds = [], setSelectedIds, onSelectLoca
 
           {pickerOpen && (
             <div className="absolute right-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl bg-white dark:bg-obsidian-900 border border-paper-border dark:border-obsidian-800 shadow-paper-hover z-30 p-2 space-y-1">
-              {allLocalities
-                .filter((l) => !selectedIds.includes(l.id))
-                .map((loc) => (
+              {allLocalities.map((loc) => {
+                const isAlreadySelected = selectedIds.includes(loc.id);
+                return (
                   <button
                     key={loc.id}
                     onClick={() => addLocality(loc.id)}
-                    className="w-full text-left px-3.5 py-2 rounded-xl text-xs hover:bg-paper-100 dark:hover:bg-obsidian-800 flex items-center justify-between transition-colors cursor-pointer"
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      isAlreadySelected
+                        ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30'
+                        : 'hover:bg-paper-100 dark:hover:bg-obsidian-800'
+                    }`}
                   >
                     <div>
                       <span className="font-bold text-paper-ink dark:text-obsidian-ink">{loc.name}</span>
                       <span className="text-[10px] font-mono text-paper-muted dark:text-obsidian-muted ml-1.5">({loc.city})</span>
                     </div>
-                    <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                      {loc.quality_score.toFixed(1)}
-                    </span>
+                    {isAlreadySelected ? (
+                      <span className="text-[10px] font-mono font-semibold text-emerald-700 dark:text-emerald-300">
+                        Active In Ledger
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                        {loc.quality_score.toFixed(1)}
+                      </span>
+                    )}
                   </button>
-                ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Inline Notification Banner */}
+      {notification && (
+        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs font-mono shadow-sm animate-fade-in">
+          <div className="flex items-center space-x-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="font-semibold">{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="p-1 hover:bg-amber-500/20 rounded-md transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {loading && !comparisonData ? (
         <div className="py-20 flex flex-col items-center justify-center space-y-3">

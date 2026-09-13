@@ -118,7 +118,7 @@ def get_cities(
     if not district_key:
         raise HTTPException(status_code=404, detail=f"District '{district}' not found in {state_key}.")
 
-    # Strictly use the authoritative list of cities/towns for THIS district
+    # Use the curated reference list of cities/towns for THIS district
     city_names = list(geo_data[state_key][district_key])
     clean_dist_name = district_key.split("(")[0].strip()
 

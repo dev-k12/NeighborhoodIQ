@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-Generates the authoritative pan-India administrative geographic hierarchy
-covering all 28 States and 8 Union Territories (total 36 entities)
-with hundreds of official districts and verified cities, towns, and localities.
+Generates an illustrative reference directory of pan-India geographic hierarchy
+covering all 28 States and 8 Union Territories (total 36 entities) with notable
+districts, cities, towns, and localities for UI exploration.
+NOTE: This dataset serves as an illustrative reference directory for exploratory
+navigation, not an official source or authoritative government census.
 """
 
 import json

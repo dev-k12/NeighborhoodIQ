@@ -264,7 +264,14 @@ def live_lookup_locality(
                 res["cached"] = True
                 return res
 
-    # Step 2: Geocode query or PIN code
+    # Step 2: Validate numeric queries vs 6-digit Indian PIN codes
+    if cleaned_query.isdigit() and not detected_pin:
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{cleaned_query}' is not a valid 6-digit Indian PIN code. Indian postal codes must be exactly 6 digits (e.g. 110001)."
+        )
+
+    # Step 3: Geocode query or PIN code
     geo = None
     if detected_pin:
         if detected_pin in PINCODES_DATA:

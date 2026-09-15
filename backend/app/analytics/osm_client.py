@@ -63,6 +63,7 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
     for search_query in candidate_queries:
         params = {
             "q": search_query,
+            "countrycodes": "in",
             "format": "jsonv2",
             "addressdetails": 1,
             "limit": 5
@@ -86,6 +87,9 @@ def geocode_locality(name: str, city: Optional[str] = None) -> Optional[Dict[str
                 lon = float(data["lon"])
                 display_name = data.get("display_name", "")
                 address = data.get("address", {})
+                country_code = address.get("country_code", "").lower()
+                if country_code and country_code != "in":
+                    continue
                 resolved_city = (
                     address.get("city") or
                     address.get("town") or

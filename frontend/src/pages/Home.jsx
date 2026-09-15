@@ -157,7 +157,7 @@ export default function Home({ onSelectLocality, onCompareLocalities, comparedId
             </h1>
 
             <p className="text-paper-muted dark:text-obsidian-muted text-sm sm:text-base leading-relaxed max-w-2xl font-normal">
-              From tier-1 metropolitan nodes to district headquarters and agrarian tehsils (e.g. <em>Bulandshahr</em>, <em>Lucknow</em>, <em>Jaipur</em>, <em>Kochi</em>). NeighborhoodIQ measures verified physical infrastructure — hospitals, schools, parks, transit nodes, and daily retail amenities.
+              From tier-1 metropolitan nodes to district headquarters and regional centers (e.g. <em>Bhopal</em>, <em>Lucknow</em>, <em>Jaipur</em>, <em>Kochi</em>). NeighborhoodIQ measures verified physical infrastructure — hospitals, schools, parks, transit nodes, and daily retail amenities.
             </p>
 
             {/* Architectural Ticker */}

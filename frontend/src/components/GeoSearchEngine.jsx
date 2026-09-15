@@ -57,12 +57,6 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
         setLoadingStates(true);
         const res = await getGeoStates();
         setStates(res.states || []);
-        // Pre-select Uttar Pradesh as an intuitive default
-        if (res.states?.includes('Uttar Pradesh')) {
-          setSelectedState('Uttar Pradesh');
-        } else if (res.states?.length > 0) {
-          setSelectedState(res.states[0]);
-        }
       } catch (err) {
         console.error('Failed to load states:', err);
       } finally {
@@ -74,7 +68,13 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
 
   // When State changes, load its Districts
   useEffect(() => {
-    if (!selectedState) return;
+    if (!selectedState) {
+      setDistricts([]);
+      setSelectedDistrict('');
+      setCities([]);
+      setDistrictSummary(null);
+      return;
+    }
     async function loadDistricts() {
       try {
         setLoadingDistricts(true);
@@ -85,13 +85,6 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
         const res = await getGeoDistricts(selectedState);
         const distList = res.districts || [];
         setDistricts(distList);
-
-        // Pre-select Bulandshahr if in UP, or first district
-        if (selectedState === 'Uttar Pradesh' && distList.includes('Bulandshahr')) {
-          setSelectedDistrict('Bulandshahr');
-        } else if (distList.length > 0) {
-          setSelectedDistrict(distList[0]);
-        }
       } catch (err) {
         console.error('Failed to load districts:', err);
       } finally {
@@ -282,7 +275,7 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
           <div className="space-y-2">
             <label className="block text-xs font-mono uppercase tracking-wider text-paper-muted dark:text-obsidian-muted flex items-center justify-between">
               <span className="flex items-center space-x-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className={`w-1.5 h-1.5 rounded-full ${selectedState ? 'bg-emerald-500' : 'bg-paper-muted dark:bg-obsidian-muted'}`} />
                 <span className="font-semibold text-paper-ink dark:text-obsidian-ink">01 • STATE / UNION TERRITORY</span>
               </span>
               <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">{states.length} Jurisdictions</span>
@@ -294,6 +287,7 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
                 disabled={loadingStates}
                 className="w-full px-4 py-3 rounded-xl border border-paper-border dark:border-obsidian-800 bg-white dark:bg-obsidian-950 text-paper-ink dark:text-white font-medium text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all shadow-paper cursor-pointer"
               >
+                <option value="">Select a State / Union Territory...</option>
                 {states.map((st) => (
                   <option key={st} value={st}>
                     {st}
@@ -307,18 +301,21 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
           <div className="space-y-2">
             <label className="block text-xs font-mono uppercase tracking-wider text-paper-muted dark:text-obsidian-muted flex items-center justify-between">
               <span className="flex items-center space-x-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className={`w-1.5 h-1.5 rounded-full ${selectedDistrict ? 'bg-emerald-500' : 'bg-paper-muted dark:bg-obsidian-muted'}`} />
                 <span className="font-semibold text-paper-ink dark:text-obsidian-ink">02 • REVENUE DISTRICT</span>
               </span>
-              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">{districts.length} in {selectedState}</span>
+              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                {selectedState ? `${districts.length} in ${selectedState}` : 'Pending state selection'}
+              </span>
             </label>
             <div className="relative">
               <select
                 value={selectedDistrict}
                 onChange={(e) => setSelectedDistrict(e.target.value)}
-                disabled={loadingDistricts || districts.length === 0}
+                disabled={loadingDistricts || !selectedState || districts.length === 0}
                 className="w-full px-4 py-3 rounded-xl border border-paper-border dark:border-obsidian-800 bg-white dark:bg-obsidian-950 text-paper-ink dark:text-white font-medium text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all shadow-paper cursor-pointer disabled:opacity-50"
               >
+                <option value="">{selectedState ? 'Select a Revenue District...' : 'Select a State first...'}</option>
                 {districts.map((dst) => (
                   <option key={dst} value={dst}>
                     {dst}
@@ -431,181 +428,211 @@ export default function GeoSearchEngine({ onSelectLocality, onLocalityAdded }) {
         )}
 
         {/* Step 3: Listed Cities / Towns / Localities */}
-        <div className="space-y-4 pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-paper-border dark:border-obsidian-800 pb-3">
-            <div>
-              <h3 className="text-base font-serif text-paper-ink dark:text-obsidian-ink flex items-center space-x-2">
-                <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Localities & Towns in <span className="italic">{selectedDistrict}, {selectedState}</span></span>
-              </h3>
-              <p className="text-xs text-paper-muted dark:text-obsidian-muted font-sans">
-                Each entry represents a verified revenue boundary with strict geo-containment.
+        {!selectedState ? (
+          <div className="py-12 px-6 rounded-2xl border border-dashed border-paper-border dark:border-obsidian-800 bg-paper-50/50 dark:bg-obsidian-950/40 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Compass className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <h4 className="font-serif font-semibold text-base text-paper-ink dark:text-obsidian-ink">
+                Select a State or Union Territory
+              </h4>
+              <p className="text-xs text-paper-muted dark:text-obsidian-muted">
+                Choose any of India's 36 jurisdictions above to drill down into its revenue districts, towns, and neighborhood livability records.
               </p>
             </div>
-
-            <div className="flex items-center space-x-2.5 self-start sm:self-auto">
-              {cities.length > 5 && (
-                <div className="relative w-48">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-paper-muted dark:text-obsidian-muted" />
-                  <input
-                    type="text"
-                    placeholder={`Filter in ${selectedDistrict}...`}
-                    value={cityFilterQuery}
-                    onChange={(e) => setCityFilterQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-paper-border dark:border-obsidian-800 bg-white dark:bg-obsidian-950 text-paper-ink dark:text-white placeholder-paper-muted dark:placeholder-obsidian-muted focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
-                  />
-                </div>
-              )}
-              <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-paper-200/60 dark:bg-obsidian-800 text-paper-ink dark:text-obsidian-muted shrink-0 border border-paper-border dark:border-obsidian-700">
-                {cities.filter((c) => !cityFilterQuery || c.name.toLowerCase().includes(cityFilterQuery.toLowerCase())).length} Places
-              </span>
+          </div>
+        ) : !selectedDistrict ? (
+          <div className="py-12 px-6 rounded-2xl border border-dashed border-paper-border dark:border-obsidian-800 bg-paper-50/50 dark:bg-obsidian-950/40 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <MapPin className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <h4 className="font-serif font-semibold text-base text-paper-ink dark:text-obsidian-ink">
+                Select a Revenue District in {selectedState}
+              </h4>
+              <p className="text-xs text-paper-muted dark:text-obsidian-muted">
+                Choose a revenue district above to view benchmark livability specs, listed towns, or trigger on-demand spatial scoring.
+              </p>
             </div>
           </div>
+        ) : (
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-paper-border dark:border-obsidian-800 pb-3">
+              <div>
+                <h3 className="text-base font-serif text-paper-ink dark:text-obsidian-ink flex items-center space-x-2">
+                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Localities & Towns in <span className="italic">{selectedDistrict}, {selectedState}</span></span>
+                </h3>
+                <p className="text-xs text-paper-muted dark:text-obsidian-muted font-sans">
+                  Each entry represents a verified revenue boundary with strict geo-containment.
+                </p>
+              </div>
 
-          {loadingCities ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-28 rounded-2xl bg-paper-200/50 dark:bg-obsidian-800/40 animate-pulse border border-paper-border dark:border-obsidian-800" />
-              ))}
+              <div className="flex items-center space-x-2.5 self-start sm:self-auto">
+                {cities.length > 5 && (
+                  <div className="relative w-48">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-paper-muted dark:text-obsidian-muted" />
+                    <input
+                      type="text"
+                      placeholder={`Filter in ${selectedDistrict}...`}
+                      value={cityFilterQuery}
+                      onChange={(e) => setCityFilterQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-paper-border dark:border-obsidian-800 bg-white dark:bg-obsidian-950 text-paper-ink dark:text-white placeholder-paper-muted dark:placeholder-obsidian-muted focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
+                    />
+                  </div>
+                )}
+                <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-paper-200/60 dark:bg-obsidian-800 text-paper-ink dark:text-obsidian-muted shrink-0 border border-paper-border dark:border-obsidian-700">
+                  {cities.filter((c) => !cityFilterQuery || c.name.toLowerCase().includes(cityFilterQuery.toLowerCase())).length} Places
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {cities
-                .filter((c) => !cityFilterQuery || c.name.toLowerCase().includes(cityFilterQuery.toLowerCase()))
-                .map((city) => {
-                  const isCurrentScoring = scoringCityName === city.name;
 
-                  return (
-                    <div
-                      key={city.name}
-                      className={`p-4 rounded-2xl border transition-all ${
-                        city.is_scored
-                          ? 'bg-white dark:bg-obsidian-950 border-paper-border dark:border-obsidian-800 hover:border-emerald-500/50 shadow-paper hover:shadow-paper-hover'
-                          : 'bg-paper-100/60 dark:bg-obsidian-900/40 border border-dashed border-paper-border dark:border-obsidian-800 hover:border-amber-500/40'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <h4 className="font-sans font-bold text-sm text-paper-ink dark:text-obsidian-ink flex items-center space-x-1.5">
-                            <span>{city.name}</span>
-                            {city.is_scored && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-                          </h4>
-                          <span className="text-[11px] font-mono text-paper-muted dark:text-obsidian-muted">
-                            {city.district} District
-                          </span>
+            {loadingCities ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-28 rounded-2xl bg-paper-200/50 dark:bg-obsidian-800/40 animate-pulse border border-paper-border dark:border-obsidian-800" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {cities
+                  .filter((c) => !cityFilterQuery || c.name.toLowerCase().includes(cityFilterQuery.toLowerCase()))
+                  .map((city) => {
+                    const isCurrentScoring = scoringCityName === city.name;
+
+                    return (
+                      <div
+                        key={city.name}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          city.is_scored
+                            ? 'bg-white dark:bg-obsidian-950 border-paper-border dark:border-obsidian-800 hover:border-emerald-500/50 shadow-paper hover:shadow-paper-hover'
+                            : 'bg-paper-100/60 dark:bg-obsidian-900/40 border border-dashed border-paper-border dark:border-obsidian-800 hover:border-amber-500/40'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <h4 className="font-sans font-bold text-sm text-paper-ink dark:text-obsidian-ink flex items-center space-x-1.5">
+                              <span>{city.name}</span>
+                              {city.is_scored && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                            </h4>
+                            <span className="text-[11px] font-mono text-paper-muted dark:text-obsidian-muted">
+                              {city.district} District
+                            </span>
+                          </div>
+
+                          {city.is_scored ? (
+                            <div className="text-right shrink-0">
+                              <span className="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
+                                {city.quality_score?.toFixed(1)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-amber-500/10 dark:bg-amber-500/15 text-[10px] font-mono text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                              <span>AWAITING SPEC</span>
+                            </span>
+                          )}
                         </div>
 
                         {city.is_scored ? (
-                          <div className="text-right shrink-0">
-                            <span className="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
-                              {city.quality_score?.toFixed(1)}
-                            </span>
+                          <div className="space-y-2.5 mt-3 pt-2.5 border-t border-paper-border dark:border-obsidian-800">
+                            <div className="flex items-center justify-between text-[11px] font-mono text-paper-muted dark:text-obsidian-muted">
+                              <span className="truncate max-w-[120px]">{city.cluster_label || 'Civic Center'}</span>
+                              <span className="space-x-1.5">
+                                <span>H:{city.counts?.healthcare || 0}</span>
+                                <span>P:{city.counts?.green_space || 0}</span>
+                                <span>T:{city.counts?.transit || 0}</span>
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => onSelectLocality(city.locality_id)}
+                              className="w-full py-2 px-3 rounded-xl bg-obsidian-950 hover:bg-emerald-600 dark:bg-obsidian-800 dark:hover:bg-emerald-600 text-white font-medium text-xs transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
+                            >
+                              <span>Inspect Spec</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-amber-500/10 dark:bg-amber-500/15 text-[10px] font-mono text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                            <span>AWAITING SPEC</span>
-                          </span>
+                          <div className="space-y-2 mt-3 pt-2.5 border-t border-paper-border dark:border-obsidian-800">
+                            <div className="flex items-center justify-between text-[11px] font-mono text-paper-muted dark:text-obsidian-muted">
+                              <span>Status:</span>
+                              <span>Pending Ingestion</span>
+                            </div>
+                            <p className="text-[10px] text-paper-muted dark:text-obsidian-muted leading-tight font-sans">
+                              Direct OpenStreetMap bounding query ready. Click below to execute live spatial ingestion.
+                            </p>
+                            <button
+                              onClick={() => handleScoreLive(city.name)}
+                              disabled={isCurrentScoring || scoringCityName !== null || batchScoring}
+                              className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium text-xs transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
+                            >
+                              {isCurrentScoring ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Evaluating via OSM...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                                  <span>Evaluate Live (OSM)</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         )}
                       </div>
+                    );
+                  })}
+              </div>
+            )}
 
-                      {city.is_scored ? (
-                        <div className="space-y-2.5 mt-3 pt-2.5 border-t border-paper-border dark:border-obsidian-800">
-                          <div className="flex items-center justify-between text-[11px] font-mono text-paper-muted dark:text-obsidian-muted">
-                            <span className="truncate max-w-[120px]">{city.cluster_label || 'Civic Center'}</span>
-                            <span className="space-x-1.5">
-                              <span>H:{city.counts?.healthcare || 0}</span>
-                              <span>P:{city.counts?.green_space || 0}</span>
-                              <span>T:{city.counts?.transit || 0}</span>
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => onSelectLocality(city.locality_id)}
-                            className="w-full py-2 px-3 rounded-xl bg-obsidian-950 hover:bg-emerald-600 dark:bg-obsidian-800 dark:hover:bg-emerald-600 text-white font-medium text-xs transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
-                          >
-                            <span>Inspect Spec</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 mt-3 pt-2.5 border-t border-paper-border dark:border-obsidian-800">
-                          <div className="flex items-center justify-between text-[11px] font-mono text-paper-muted dark:text-obsidian-muted">
-                            <span>Status:</span>
-                            <span>Pending Ingestion</span>
-                          </div>
-                          <p className="text-[10px] text-paper-muted dark:text-obsidian-muted leading-tight font-sans">
-                            Direct OpenStreetMap bounding query ready. Click below to execute live spatial ingestion.
-                          </p>
-                          <button
-                            onClick={() => handleScoreLive(city.name)}
-                            disabled={isCurrentScoring || scoringCityName !== null || batchScoring}
-                            className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium text-xs transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
-                          >
-                            {isCurrentScoring ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                <span>Evaluating via OSM...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
-                                <span>Evaluate Live (OSM)</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          )}
+            {/* Custom Locality / Village Write-In Box */}
+            <div className="mt-6 p-5 rounded-2xl bg-paper-100 dark:bg-obsidian-950 border border-paper-border dark:border-obsidian-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-paper-ink dark:text-obsidian-ink flex items-center space-x-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>UNINDEXED VILLAGE OR COLONY IN {selectedDistrict}?</span>
+                </span>
+                <p className="text-xs text-paper-muted dark:text-obsidian-muted font-sans">
+                  Type any village, ward, or enclave name in {selectedDistrict}. We will resolve coordinates and score genuine OSM infrastructure live.
+                </p>
+              </div>
 
-          {/* Custom Locality / Village Write-In Box */}
-          <div className="mt-6 p-5 rounded-2xl bg-paper-100 dark:bg-obsidian-950 border border-paper-border dark:border-obsidian-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-paper-ink dark:text-obsidian-ink flex items-center space-x-1.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>UNINDEXED VILLAGE OR COLONY IN {selectedDistrict}?</span>
-              </span>
-              <p className="text-xs text-paper-muted dark:text-obsidian-muted font-sans">
-                Type any village, ward, or enclave name in {selectedDistrict}. We will resolve coordinates and score genuine OSM infrastructure live.
-              </p>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (customCityName.trim()) {
-                  handleScoreLive(customCityName.trim());
-                }
-              }}
-              className="flex items-center space-x-2 shrink-0"
-            >
-              <input
-                type="text"
-                placeholder={`Enter place in ${selectedDistrict}...`}
-                value={customCityName}
-                onChange={(e) => setCustomCityName(e.target.value)}
-                disabled={scoringCityName !== null}
-                className="px-4 py-2 text-xs rounded-xl border border-paper-border dark:border-obsidian-800 bg-white dark:bg-obsidian-900 text-paper-ink dark:text-white placeholder-paper-muted dark:placeholder-obsidian-muted focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full sm:w-60 font-sans"
-              />
-              <button
-                type="submit"
-                disabled={!customCityName.trim() || scoringCityName !== null}
-                className="px-4 py-2 rounded-xl bg-obsidian-950 hover:bg-emerald-600 dark:bg-white dark:text-obsidian-950 dark:hover:bg-emerald-400 disabled:opacity-50 text-white font-medium text-xs shrink-0 transition-all flex items-center space-x-1.5 cursor-pointer"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (customCityName.trim()) {
+                    handleScoreLive(customCityName.trim());
+                  }
+                }}
+                className="flex items-center space-x-2 shrink-0"
               >
-                {scoringCityName === customCityName.trim() ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <>
-                    <span>Query</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
-            </form>
+                <input
+                  type="text"
+                  placeholder={`Enter place in ${selectedDistrict}...`}
+                  value={customCityName}
+                  onChange={(e) => setCustomCityName(e.target.value)}
+                  disabled={scoringCityName !== null}
+                  className="px-4 py-2 text-xs rounded-xl border border-paper-border dark:border-obsidian-800 bg-white dark:bg-obsidian-900 text-paper-ink dark:text-white placeholder-paper-muted dark:placeholder-obsidian-muted focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full sm:w-60 font-sans"
+                />
+                <button
+                  type="submit"
+                  disabled={!customCityName.trim() || scoringCityName !== null}
+                  className="px-4 py-2 rounded-xl bg-obsidian-950 hover:bg-emerald-600 dark:bg-white dark:text-obsidian-950 dark:hover:bg-emerald-400 disabled:opacity-50 text-white font-medium text-xs shrink-0 transition-all flex items-center space-x-1.5 cursor-pointer"
+                >
+                  {scoringCityName === customCityName.trim() ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Query</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

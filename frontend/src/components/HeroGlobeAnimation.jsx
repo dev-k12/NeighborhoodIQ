@@ -9,7 +9,6 @@ const REGIONAL_NODES = [
   { id: 'srinagar', name: 'Srinagar', state: 'Jammu & Kashmir', x: 185, y: 80, score: 69.4, type: 'node', label: 'Valley Eco Corridor' },
   { id: 'jaipur', name: 'Jaipur', state: 'Rajasthan', x: 175, y: 180, score: 77.8, type: 'node', label: 'Heritage & Urban Grid' },
   { id: 'lucknow', name: 'Lucknow', state: 'Uttar Pradesh', x: 275, y: 180, score: 78.4, type: 'node', label: 'Administrative & Medical' },
-  { id: 'bulandshahr', name: 'Bulandshahr', state: 'Uttar Pradesh', x: 235, y: 168, score: 66.6, type: 'node', label: 'Verified District Spec' },
   { id: 'kolkata', name: 'Kolkata', state: 'West Bengal', x: 345, y: 220, score: 80.1, type: 'node', label: 'Eastern Riverine Hub' },
   { id: 'guwahati', name: 'Guwahati', state: 'Assam', x: 395, y: 165, score: 72.5, type: 'node', label: 'North-East Gateway' },
   { id: 'ahmedabad', name: 'Ahmedabad', state: 'Gujarat', x: 140, y: 230, score: 81.4, type: 'node', label: 'Western Commercial Axis' },
@@ -29,7 +28,6 @@ const WEB_CONNECTIONS = [
   // Star connections from central hub
   { from: 'delhi', to: 'srinagar' },
   { from: 'delhi', to: 'jaipur' },
-  { from: 'delhi', to: 'bulandshahr' },
   { from: 'delhi', to: 'lucknow' },
   { from: 'delhi', to: 'bhopal' },
   { from: 'delhi', to: 'ahmedabad' },
